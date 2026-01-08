@@ -18,15 +18,23 @@ Tools:
   - list_assignments(params=None, paginate=True, limit=200)
   - list_assignments_by_person(person_id, start=None, end=None, active_only=False)
   - list_assignments_by_project(project_id, start=None, end=None, active_only=False)
+  - list_assignments_by_role(role_id, start=None, end=None, active_only=False)
+  - list_assignments_by_team(team_id, start=None, end=None, active_only=False, include_archived=False)
   - list_actuals(params=None, paginate=True, limit=200)
   - list_actuals_by_date_range(start, end, person_id=None, project_id=None)
   - list_actuals_by_person(person_id, start=None, end=None)
   - list_actuals_by_project(project_id, start=None, end=None)
+  - list_actuals_by_role(role_id, start=None, end=None)
+  - list_actuals_by_team(team_id, start=None, end=None, include_archived=False)
   - list_roles(params=None, paginate=True, limit=200)
   - list_roles_by_person(person_id)
   - list_skills(params=None, paginate=True, limit=200)
+  - list_skills_by_person(person_id)
   - list_teams(params=None, paginate=True, limit=200)
   - list_people_by_team(team_id, include_archived=False)
+  - list_people_by_skill(skill_id, min_level=None, include_archived=False)
+  - list_people_by_tag(tag_id=None, tag_name=None, include_archived=False)
+  - list_people_by_manager(manager_id, include_archived=False)
   - list_rate_cards(params=None, paginate=True, limit=200)
   - list_rate_cards_by_project(project_id)
   - runn_request(method, path, params=None, json_body=None, paginate=False, limit=200)
@@ -101,6 +109,51 @@ def _range_overlaps(
     if end_b and start_a and start_a > end_b:
         return False
     return True
+
+
+def _people_ids_for_team(
+    client: RunnClient,
+    team_id: int,
+    include_archived: bool = False,
+) -> List[int]:
+    people = _list_endpoint(client, "/people", paginate=True)
+    ids = []
+    for p in people:
+        if p.get("teamId") != team_id:
+            continue
+        if not include_archived and p.get("isArchived"):
+            continue
+        ids.append(p["id"])
+    return ids
+
+
+def _person_has_tag(person: Dict[str, object], tag_id: Optional[int], tag_name: Optional[str]) -> bool:
+    tags = person.get("tags") or []
+    tag_name_norm = tag_name.lower() if isinstance(tag_name, str) else None
+    for tag in tags:
+        if tag_id is not None and tag.get("id") == tag_id:
+            return True
+        if tag_name_norm and str(tag.get("name", "")).lower() == tag_name_norm:
+            return True
+    return False
+
+
+def _person_has_skill(person: Dict[str, object], skill_id: int, min_level: Optional[int]) -> bool:
+    skills = person.get("skills") or []
+    for skill in skills:
+        if skill.get("id") != skill_id:
+            continue
+        level = skill.get("level")
+        if min_level is None:
+            return True
+        if level is None:
+            continue
+        try:
+            if int(level) >= int(min_level):
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
 
 
 mcp = FastMCP("Runn MCP Server", json_response=True)
@@ -238,6 +291,66 @@ def list_assignments_by_project(
 
 
 @mcp.tool()
+def list_assignments_by_role(
+    role_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    active_only: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List assignments for a role, optionally filtered by date range."""
+    client = get_client(api_key)
+    assignments = _list_endpoint(client, "/assignments", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in assignments:
+        if a.get("roleId") != role_id:
+            continue
+        if active_only and not a.get("isActive", False):
+            continue
+        if start_date or end_date:
+            a_start = _to_date(a.get("startDate"))
+            a_end = _to_date(a.get("endDate"))
+            if not _range_overlaps(a_start, a_end, start_date, end_date):
+                continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
+def list_assignments_by_team(
+    team_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    active_only: bool = False,
+    include_archived: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List assignments for all people in a team, optionally filtered by date range."""
+    client = get_client(api_key)
+    person_ids = set(_people_ids_for_team(client, team_id, include_archived=include_archived))
+    assignments = _list_endpoint(client, "/assignments", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in assignments:
+        if a.get("personId") not in person_ids:
+            continue
+        if active_only and not a.get("isActive", False):
+            continue
+        if start_date or end_date:
+            a_start = _to_date(a.get("startDate"))
+            a_end = _to_date(a.get("endDate"))
+            if not _range_overlaps(a_start, a_end, start_date, end_date):
+                continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
 def list_actuals(
     params: Optional[Dict[str, object]] = None,
     paginate: bool = True,
@@ -324,6 +437,56 @@ def list_actuals_by_project(
 
 
 @mcp.tool()
+def list_actuals_by_role(
+    role_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List actuals for a role, optionally filtered by date range."""
+    client = get_client(api_key)
+    actuals = _list_endpoint(client, "/actuals", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in actuals:
+        if a.get("roleId") != role_id:
+            continue
+        if start_date or end_date:
+            if not _in_range(_to_date(a.get("date")), start_date, end_date):
+                continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
+def list_actuals_by_team(
+    team_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    include_archived: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List actuals for all people in a team, optionally filtered by date range."""
+    client = get_client(api_key)
+    person_ids = set(_people_ids_for_team(client, team_id, include_archived=include_archived))
+    actuals = _list_endpoint(client, "/actuals", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in actuals:
+        if a.get("personId") not in person_ids:
+            continue
+        if start_date or end_date:
+            if not _in_range(_to_date(a.get("date")), start_date, end_date):
+                continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
 def list_roles(
     params: Optional[Dict[str, object]] = None,
     paginate: bool = True,
@@ -356,6 +519,29 @@ def list_skills(
 
 
 @mcp.tool()
+def list_skills_by_person(person_id: int, api_key: Optional[str] = None) -> List[Dict[str, object]]:
+    """List skills for a person with level and name (if available)."""
+    client = get_client(api_key)
+    people = _list_endpoint(client, "/people", paginate=True)
+    person = next((p for p in people if p.get("id") == person_id), None)
+    if not person:
+        raise ValueError(f"Person {person_id} not found.")
+
+    skill_entries = person.get("skills") or []
+    skill_ids = {s.get("id") for s in skill_entries if s.get("id") is not None}
+    skills = _list_endpoint(client, "/skills", paginate=True)
+    skill_name_by_id = {s.get("id"): s.get("name") for s in skills}
+
+    results = []
+    for s in skill_entries:
+        sid = s.get("id")
+        if sid not in skill_ids:
+            continue
+        results.append({"id": sid, "name": skill_name_by_id.get(sid), "level": s.get("level")})
+    return results
+
+
+@mcp.tool()
 def list_teams(
     params: Optional[Dict[str, object]] = None,
     paginate: bool = True,
@@ -383,6 +569,65 @@ def list_people_by_team(
         if not include_archived and p.get("isArchived"):
             continue
         results.append(p)
+    return results
+
+
+@mcp.tool()
+def list_people_by_skill(
+    skill_id: int,
+    min_level: Optional[int] = None,
+    include_archived: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List people who have a specific skill (optionally at/above min_level)."""
+    client = get_client(api_key)
+    people = _list_endpoint(client, "/people", paginate=True)
+    results = []
+    for p in people:
+        if not include_archived and p.get("isArchived"):
+            continue
+        if _person_has_skill(p, skill_id=skill_id, min_level=min_level):
+            results.append(p)
+    return results
+
+
+@mcp.tool()
+def list_people_by_tag(
+    tag_id: Optional[int] = None,
+    tag_name: Optional[str] = None,
+    include_archived: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List people with a given tag (by id or name)."""
+    if tag_id is None and tag_name is None:
+        raise ValueError("Provide tag_id or tag_name.")
+    client = get_client(api_key)
+    people = _list_endpoint(client, "/people", paginate=True)
+    results = []
+    for p in people:
+        if not include_archived and p.get("isArchived"):
+            continue
+        if _person_has_tag(p, tag_id=tag_id, tag_name=tag_name):
+            results.append(p)
+    return results
+
+
+@mcp.tool()
+def list_people_by_manager(
+    manager_id: int,
+    include_archived: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List people managed by a given manager id."""
+    client = get_client(api_key)
+    people = _list_endpoint(client, "/people", paginate=True)
+    results = []
+    for p in people:
+        if not include_archived and p.get("isArchived"):
+            continue
+        managers = p.get("managers") or []
+        if any(m.get("id") == manager_id for m in managers):
+            results.append(p)
     return results
 
 
