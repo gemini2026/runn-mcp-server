@@ -44,6 +44,21 @@ Run the container (HTTP transport):
 docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
 ```
 
+## GHCR image
+
+The GitHub Actions workflow publishes to:
+
+```
+ghcr.io/gemini2026/runn-mcp-server
+```
+
+Pull and run:
+
+```bash
+docker pull ghcr.io/gemini2026/runn-mcp-server:main
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mcp-server:main
+```
+
 ## Claude Desktop config snippet
 
 ```json
