@@ -16,6 +16,15 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+### Windows (PowerShell)
+
+```powershell
+py -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+py -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
 ## Run (MCP server)
 
 ### stdio (Claude Desktop)
@@ -24,10 +33,24 @@ pip install -r requirements.txt
 RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport stdio
 ```
 
+### stdio (Windows PowerShell)
+
+```powershell
+$env:RUNN_API_KEY="LIVE_..."
+py mcp_runn_server.py --transport stdio
+```
+
 ### streamable-http (default)
 
 ```bash
 RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport streamable-http
+```
+
+### streamable-http (Windows PowerShell)
+
+```powershell
+$env:RUNN_API_KEY="LIVE_..."
+py mcp_runn_server.py --transport streamable-http
 ```
 
 ## Run with Docker
@@ -38,9 +61,21 @@ Build the image:
 docker build -t runn-mcp-server .
 ```
 
+### Windows PowerShell
+
+```powershell
+docker build -t runn-mcp-server .
+```
+
 Run the container (HTTP transport):
 
 ```bash
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
+```
+
+### Windows PowerShell
+
+```powershell
 docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
 ```
 
@@ -59,6 +94,13 @@ docker pull ghcr.io/gemini2026/runn-mcp-server:main
 docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mcp-server:main
 ```
 
+### Windows PowerShell
+
+```powershell
+docker pull ghcr.io/gemini2026/runn-mcp-server:main
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mcp-server:main
+```
+
 ## Claude Desktop config snippet
 
 ```json
@@ -68,6 +110,26 @@ docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mc
       "command": "/path/to/python3",
       "args": [
         "/path/to/mcp_runn_server.py",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "RUNN_API_KEY": "<YOUR_API_KEY>"
+      }
+    }
+  }
+}
+```
+
+### Windows paths example
+
+```json
+{
+  "mcpServers": {
+    "runn": {
+      "command": "C:\\\\Python311\\\\python.exe",
+      "args": [
+        "C:\\\\path\\\\to\\\\mcp_runn_server.py",
         "--transport",
         "stdio"
       ],
