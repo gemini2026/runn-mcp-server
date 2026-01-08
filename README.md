@@ -34,6 +34,16 @@ py -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+### macOS (zsh/bash: Homebrew + venv)
+
+```bash
+brew install python@3.11
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
 ## Run (MCP server)
 
 ### stdio (Claude Desktop)
@@ -49,6 +59,12 @@ $env:RUNN_API_KEY="LIVE_..."
 py mcp_runn_server.py --transport stdio
 ```
 
+### stdio (macOS / zsh)
+
+```bash
+RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport stdio
+```
+
 ### streamable-http (default)
 
 ```bash
@@ -60,6 +76,12 @@ RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport streamable-http
 ```powershell
 $env:RUNN_API_KEY="LIVE_..."
 py mcp_runn_server.py --transport streamable-http
+```
+
+### streamable-http (macOS / zsh)
+
+```bash
+RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport streamable-http
 ```
 
 ## Run with Docker
@@ -88,6 +110,12 @@ docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
 docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
 ```
 
+### macOS (Docker Desktop)
+
+```bash
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
+```
+
 ## GHCR image
 
 The GitHub Actions workflow publishes to:
@@ -106,6 +134,13 @@ docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mc
 ### Windows PowerShell
 
 ```powershell
+docker pull ghcr.io/gemini2026/runn-mcp-server:main
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mcp-server:main
+```
+
+### macOS (Docker Desktop)
+
+```bash
 docker pull ghcr.io/gemini2026/runn-mcp-server:main
 docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mcp-server:main
 ```
