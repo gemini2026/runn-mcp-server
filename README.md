@@ -86,11 +86,19 @@ docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mc
 - `billable_hours` — aggregates billable hours grouped by project/person/month.
 - `list_clients` — list clients (raw API objects).
 - `list_assignments` — list assignments (raw API objects).
+- `list_assignments_by_person` — assignments for a person, optional date range.
+- `list_assignments_by_project` — assignments for a project, optional date range.
 - `list_actuals` — list actuals (raw API objects).
+- `list_actuals_by_date_range` — actuals in a date range, optional person/project filters.
+- `list_actuals_by_person` — actuals for a person, optional date range.
+- `list_actuals_by_project` — actuals for a project, optional date range.
 - `list_roles` — list roles (raw API objects).
+- `list_roles_by_person` — roles that include a person.
 - `list_skills` — list skills (raw API objects).
 - `list_teams` — list teams (raw API objects).
+- `list_people_by_team` — people in a team (optionally include archived).
 - `list_rate_cards` — list rate cards (raw API objects).
+- `list_rate_cards_by_project` — rate cards that include a project.
 - `runn_request` — call any Runn API endpoint (GET/POST/PATCH/PUT/DELETE).
 
 Pagination for list endpoints:
@@ -102,6 +110,8 @@ Pagination for list endpoints:
   "paginate": true
 }
 ```
+
+Filter-specific tools (e.g., `list_assignments_by_person`) fetch list endpoints and apply filters client-side.
 
 ## Reports (optional)
 

@@ -16,11 +16,19 @@ Tools:
       returns aggregated billable hours grouped by project/person/month
   - list_clients(params=None, paginate=True, limit=200)
   - list_assignments(params=None, paginate=True, limit=200)
+  - list_assignments_by_person(person_id, start=None, end=None, active_only=False)
+  - list_assignments_by_project(project_id, start=None, end=None, active_only=False)
   - list_actuals(params=None, paginate=True, limit=200)
+  - list_actuals_by_date_range(start, end, person_id=None, project_id=None)
+  - list_actuals_by_person(person_id, start=None, end=None)
+  - list_actuals_by_project(project_id, start=None, end=None)
   - list_roles(params=None, paginate=True, limit=200)
+  - list_roles_by_person(person_id)
   - list_skills(params=None, paginate=True, limit=200)
   - list_teams(params=None, paginate=True, limit=200)
+  - list_people_by_team(team_id, include_archived=False)
   - list_rate_cards(params=None, paginate=True, limit=200)
+  - list_rate_cards_by_project(project_id)
   - runn_request(method, path, params=None, json_body=None, paginate=False, limit=200)
       calls any Runn API endpoint (optionally paginated for list endpoints)
 
@@ -47,6 +55,54 @@ def get_client(api_key: Optional[str] = None) -> RunnClient:
     return RunnClient(api_key=key)
 
 
+def _list_endpoint(
+    client: RunnClient,
+    path: str,
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+) -> object:
+    if paginate:
+        return list(client.paginate(path, params=params, limit=limit))
+    resp = client.request("GET", path, params=params)
+    if isinstance(resp, dict) and "values" in resp:
+        return resp.get("values", [])
+    return resp
+
+
+def _to_date(value: Optional[str]) -> Optional[dt.date]:
+    return parse_date(value) if value else None
+
+
+def _in_range(date_value: Optional[dt.date], start: Optional[dt.date], end: Optional[dt.date]) -> bool:
+    if date_value is None:
+        return False
+    if start and date_value < start:
+        return False
+    if end and date_value > end:
+        return False
+    return True
+
+
+def _range_overlaps(
+    start_a: Optional[dt.date],
+    end_a: Optional[dt.date],
+    start_b: Optional[dt.date],
+    end_b: Optional[dt.date],
+) -> bool:
+    if start_a is None and end_a is None:
+        return True
+    if end_a is None:
+        end_a = start_a
+    if start_a is None:
+        start_a = end_a
+    if start_b and end_a and end_a < start_b:
+        return False
+    if end_b and start_a and start_a > end_b:
+        return False
+    return True
+
+
 mcp = FastMCP("Runn MCP Server", json_response=True)
 
 
@@ -67,16 +123,9 @@ def list_people(
 ) -> object:
     """List people. Default returns {id, name, email}; set full=True for raw API objects."""
     client = get_client(api_key)
+    people_raw = _list_endpoint(client, "/people", params=params, paginate=paginate, limit=limit)
     if full:
-        if paginate:
-            return list(client.paginate("/people", params=params, limit=limit))
-        return client.request("GET", "/people", params=params)
-
-    if paginate:
-        people_raw = client.paginate("/people", params=params, limit=limit)
-    else:
-        resp = client.request("GET", "/people", params=params)
-        people_raw = resp.get("values", []) if isinstance(resp, dict) else resp
+        return people_raw
 
     return [
         {"id": p["id"], "name": f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(), "email": p.get("email")}
@@ -115,9 +164,7 @@ def list_clients(
 ) -> object:
     """List clients (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/clients", params=params, limit=limit))
-    return client.request("GET", "/clients", params=params)
+    return _list_endpoint(client, "/clients", params=params, paginate=paginate, limit=limit)
 
 
 @mcp.tool()
@@ -129,9 +176,65 @@ def list_assignments(
 ) -> object:
     """List assignments (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/assignments", params=params, limit=limit))
-    return client.request("GET", "/assignments", params=params)
+    return _list_endpoint(client, "/assignments", params=params, paginate=paginate, limit=limit)
+
+
+@mcp.tool()
+def list_assignments_by_person(
+    person_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    active_only: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List assignments for a person, optionally filtered by date range."""
+    client = get_client(api_key)
+    assignments = _list_endpoint(client, "/assignments", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in assignments:
+        if a.get("personId") != person_id:
+            continue
+        if active_only and not a.get("isActive", False):
+            continue
+        if start_date or end_date:
+            a_start = _to_date(a.get("startDate"))
+            a_end = _to_date(a.get("endDate"))
+            if not _range_overlaps(a_start, a_end, start_date, end_date):
+                continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
+def list_assignments_by_project(
+    project_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    active_only: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List assignments for a project, optionally filtered by date range."""
+    client = get_client(api_key)
+    assignments = _list_endpoint(client, "/assignments", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in assignments:
+        if a.get("projectId") != project_id:
+            continue
+        if active_only and not a.get("isActive", False):
+            continue
+        if start_date or end_date:
+            a_start = _to_date(a.get("startDate"))
+            a_end = _to_date(a.get("endDate"))
+            if not _range_overlaps(a_start, a_end, start_date, end_date):
+                continue
+        results.append(a)
+    return results
 
 
 @mcp.tool()
@@ -143,9 +246,81 @@ def list_actuals(
 ) -> object:
     """List actuals (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/actuals", params=params, limit=limit))
-    return client.request("GET", "/actuals", params=params)
+    return _list_endpoint(client, "/actuals", params=params, paginate=paginate, limit=limit)
+
+
+@mcp.tool()
+def list_actuals_by_date_range(
+    start: str,
+    end: str,
+    person_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List actuals within a date range, optionally filtered by person/project."""
+    client = get_client(api_key)
+    actuals = _list_endpoint(client, "/actuals", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in actuals:
+        if person_id is not None and a.get("personId") != person_id:
+            continue
+        if project_id is not None and a.get("projectId") != project_id:
+            continue
+        if not _in_range(_to_date(a.get("date")), start_date, end_date):
+            continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
+def list_actuals_by_person(
+    person_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List actuals for a person, optionally filtered by date range."""
+    client = get_client(api_key)
+    actuals = _list_endpoint(client, "/actuals", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in actuals:
+        if a.get("personId") != person_id:
+            continue
+        if start_date or end_date:
+            if not _in_range(_to_date(a.get("date")), start_date, end_date):
+                continue
+        results.append(a)
+    return results
+
+
+@mcp.tool()
+def list_actuals_by_project(
+    project_id: int,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List actuals for a project, optionally filtered by date range."""
+    client = get_client(api_key)
+    actuals = _list_endpoint(client, "/actuals", paginate=True)
+    start_date = _to_date(start)
+    end_date = _to_date(end)
+
+    results = []
+    for a in actuals:
+        if a.get("projectId") != project_id:
+            continue
+        if start_date or end_date:
+            if not _in_range(_to_date(a.get("date")), start_date, end_date):
+                continue
+        results.append(a)
+    return results
 
 
 @mcp.tool()
@@ -157,9 +332,15 @@ def list_roles(
 ) -> object:
     """List roles (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/roles", params=params, limit=limit))
-    return client.request("GET", "/roles", params=params)
+    return _list_endpoint(client, "/roles", params=params, paginate=paginate, limit=limit)
+
+
+@mcp.tool()
+def list_roles_by_person(person_id: int, api_key: Optional[str] = None) -> List[Dict[str, object]]:
+    """List roles that include the given person_id."""
+    client = get_client(api_key)
+    roles = _list_endpoint(client, "/roles", paginate=True)
+    return [r for r in roles if person_id in (r.get("personIds") or [])]
 
 
 @mcp.tool()
@@ -171,9 +352,7 @@ def list_skills(
 ) -> object:
     """List skills (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/skills", params=params, limit=limit))
-    return client.request("GET", "/skills", params=params)
+    return _list_endpoint(client, "/skills", params=params, paginate=paginate, limit=limit)
 
 
 @mcp.tool()
@@ -185,9 +364,26 @@ def list_teams(
 ) -> object:
     """List teams (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/teams", params=params, limit=limit))
-    return client.request("GET", "/teams", params=params)
+    return _list_endpoint(client, "/teams", params=params, paginate=paginate, limit=limit)
+
+
+@mcp.tool()
+def list_people_by_team(
+    team_id: int,
+    include_archived: bool = False,
+    api_key: Optional[str] = None,
+) -> List[Dict[str, object]]:
+    """List people in a team."""
+    client = get_client(api_key)
+    people = _list_endpoint(client, "/people", paginate=True)
+    results = []
+    for p in people:
+        if p.get("teamId") != team_id:
+            continue
+        if not include_archived and p.get("isArchived"):
+            continue
+        results.append(p)
+    return results
 
 
 @mcp.tool()
@@ -199,9 +395,15 @@ def list_rate_cards(
 ) -> object:
     """List rate cards (raw API objects)."""
     client = get_client(api_key)
-    if paginate:
-        return list(client.paginate("/rate-cards", params=params, limit=limit))
-    return client.request("GET", "/rate-cards", params=params)
+    return _list_endpoint(client, "/rate-cards", params=params, paginate=paginate, limit=limit)
+
+
+@mcp.tool()
+def list_rate_cards_by_project(project_id: int, api_key: Optional[str] = None) -> List[Dict[str, object]]:
+    """List rate cards that include the given project_id."""
+    client = get_client(api_key)
+    rate_cards = _list_endpoint(client, "/rate-cards", paginate=True)
+    return [rc for rc in rate_cards if project_id in (rc.get("projectIds") or [])]
 
 
 @mcp.tool()
