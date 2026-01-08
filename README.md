@@ -25,6 +25,15 @@ py -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+### Windows (Command Prompt)
+
+```cmd
+py -m venv .venv
+.\\.venv\\Scripts\\activate.bat
+py -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
 ## Run (MCP server)
 
 ### stdio (Claude Desktop)
