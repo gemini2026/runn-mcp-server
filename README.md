@@ -30,6 +30,20 @@ RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport stdio
 RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport streamable-http
 ```
 
+## Run with Docker
+
+Build the image:
+
+```bash
+docker build -t runn-mcp-server .
+```
+
+Run the container (HTTP transport):
+
+```bash
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
+```
+
 ## Claude Desktop config snippet
 
 ```json
