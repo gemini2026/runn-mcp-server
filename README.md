@@ -192,6 +192,61 @@ Pagination for list endpoints:
 
 Filter-specific tools (e.g., `list_assignments_by_person`) fetch list endpoints and apply filters client-side.
 
+## Usage examples
+
+### HTTP transport (streamable-http)
+
+1. Start the server:
+
+   ```bash
+   RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport streamable-http
+   ```
+
+2. Invoke a specific tool via HTTP:
+
+   ```bash
+   curl -s http://localhost:8000/api \
+     -H "Content-Type: application/json" \
+     -d '{
+       "tool": "list_actuals_by_person",
+       "args": {
+         "person_id": 123,
+         "start": "2025-01-01",
+         "end": "2025-01-31"
+       }
+     }' | jq
+   ```
+
+3. Go straight to the raw Runn API:
+
+   ```bash
+   curl -s http://localhost:8000/api \
+     -H "Content-Type: application/json" \
+     -d '{
+       "tool": "runn_request",
+       "args": {
+         "method": "GET",
+         "path": "/projects"
+       }
+     }' | jq
+   ```
+
+### stdio transport (Claude/Desktop or script)
+
+```bash
+printf '{"tool":"list_projects"}' | RUNN_API_KEY=LIVE_... python3 mcp_runn_server.py --transport stdio
+```
+
+Claude will read the JSON response from stdout, just like any MCP client.
+
+### Docker usage
+
+```bash
+docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 runn-mcp-server
+```
+
+Connect via the HTTP examples above or switch to stdio by appending `--transport stdio` on the Docker command.
+
 ## Reports (optional)
 
 `runn_reports.py` can export billable hours grouped by project/person/month.
