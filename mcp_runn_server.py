@@ -14,6 +14,8 @@ Tools:
   - list_people() -> list of {id, name, email}
   - billable_hours(start=None, end=None, project_id=None, person_id=None)
       returns aggregated billable hours grouped by project/person/month
+  - runn_request(method, path, params=None, json_body=None, paginate=False, limit=200)
+      calls any Runn API endpoint (optionally paginated for list endpoints)
 
 Notes:
   - Requires env RUNN_API_KEY.
@@ -79,6 +81,25 @@ def billable_hours(
         return True
 
     return [row for row in rows if matches(row)]
+
+
+@mcp.tool()
+def runn_request(
+    method: str,
+    path: str,
+    params: Optional[Dict[str, object]] = None,
+    json_body: Optional[Dict[str, object]] = None,
+    paginate: bool = False,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """Call any Runn API endpoint and return the JSON response."""
+    client = get_client(api_key)
+    if paginate:
+        if method.upper() != "GET":
+            raise ValueError("paginate=True only supports GET requests.")
+        return list(client.paginate(path, params=params, limit=limit))
+    return client.request(method, path, params=params, json_body=json_body)
 
 
 if __name__ == "__main__":

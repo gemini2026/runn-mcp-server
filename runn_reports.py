@@ -22,6 +22,7 @@ import requests
 
 DEFAULT_BASE_URL = "https://api.runn.io"
 DEFAULT_ACCEPT_VERSION = "1.0.0"
+DEFAULT_TIMEOUT = 30
 
 
 class RunnClient:
@@ -56,9 +57,7 @@ class RunnClient:
             if cursor:
                 page_params["cursor"] = cursor
 
-            resp = self.session.get(f"{self.base_url}{path}", params=page_params, timeout=30)
-            resp.raise_for_status()
-            payload = resp.json()
+            payload = self.request("GET", path, params=page_params)
 
             for item in payload.get("values", []):
                 yield item
@@ -66,6 +65,47 @@ class RunnClient:
             cursor = payload.get("nextCursor")
             if not cursor:
                 break
+
+    def _normalize_path(self, path: str) -> str:
+        if path.startswith("http://") or path.startswith("https://"):
+            raise ValueError("Path must be relative, e.g. /projects")
+        return path if path.startswith("/") else f"/{path}"
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        params: Optional[Dict[str, object]] = None,
+        json_body: Optional[Dict[str, object]] = None,
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> object:
+        """Make a raw Runn API request and return parsed JSON when possible."""
+        method = method.upper()
+        path = self._normalize_path(path)
+
+        resp = self.session.request(
+            method,
+            f"{self.base_url}{path}",
+            params=params,
+            json=json_body,
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+
+        if resp.status_code == 204:
+            return {"status_code": resp.status_code}
+
+        content_type = resp.headers.get("content-type", "")
+        if "application/json" in content_type:
+            return resp.json()
+
+        return {"status_code": resp.status_code, "text": resp.text}
+
+    def paginate(
+        self, path: str, params: Optional[Dict[str, object]] = None, limit: int = 200
+    ) -> Generator[Dict, None, None]:
+        """Public pagination helper for list endpoints."""
+        yield from self._paginate(path, params=params, limit=limit)
 
     def iter_actuals(self, limit: int = 200) -> Generator[Dict, None, None]:
         return self._paginate("/actuals", limit=limit)

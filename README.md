@@ -79,6 +79,23 @@ docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mc
 }
 ```
 
+## MCP tools
+
+- `list_projects` — returns `{id, name}` pairs.
+- `list_people` — returns `{id, name, email}` for people.
+- `billable_hours` — aggregates billable hours grouped by project/person/month.
+- `runn_request` — call any Runn API endpoint (GET/POST/PATCH/PUT/DELETE).
+
+Pagination for list endpoints:
+
+```json
+{
+  "method": "GET",
+  "path": "/projects",
+  "paginate": true
+}
+```
+
 ## Reports (optional)
 
 `runn_reports.py` can export billable hours grouped by project/person/month.
