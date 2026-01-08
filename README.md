@@ -82,8 +82,15 @@ docker run --rm -e RUNN_API_KEY=LIVE_... -p 8000:8000 ghcr.io/gemini2026/runn-mc
 ## MCP tools
 
 - `list_projects` — returns `{id, name}` pairs.
-- `list_people` — returns `{id, name, email}` for people.
+- `list_people` — returns `{id, name, email}` by default (set `full=true` for raw objects).
 - `billable_hours` — aggregates billable hours grouped by project/person/month.
+- `list_clients` — list clients (raw API objects).
+- `list_assignments` — list assignments (raw API objects).
+- `list_actuals` — list actuals (raw API objects).
+- `list_roles` — list roles (raw API objects).
+- `list_skills` — list skills (raw API objects).
+- `list_teams` — list teams (raw API objects).
+- `list_rate_cards` — list rate cards (raw API objects).
 - `runn_request` — call any Runn API endpoint (GET/POST/PATCH/PUT/DELETE).
 
 Pagination for list endpoints:

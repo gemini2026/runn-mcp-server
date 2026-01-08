@@ -11,9 +11,16 @@ Usage:
 
 Tools:
   - list_projects() -> list of {id, name}
-  - list_people() -> list of {id, name, email}
+  - list_people(full=False, params=None, paginate=True, limit=200) -> list of {id, name, email} by default
   - billable_hours(start=None, end=None, project_id=None, person_id=None)
       returns aggregated billable hours grouped by project/person/month
+  - list_clients(params=None, paginate=True, limit=200)
+  - list_assignments(params=None, paginate=True, limit=200)
+  - list_actuals(params=None, paginate=True, limit=200)
+  - list_roles(params=None, paginate=True, limit=200)
+  - list_skills(params=None, paginate=True, limit=200)
+  - list_teams(params=None, paginate=True, limit=200)
+  - list_rate_cards(params=None, paginate=True, limit=200)
   - runn_request(method, path, params=None, json_body=None, paginate=False, limit=200)
       calls any Runn API endpoint (optionally paginated for list endpoints)
 
@@ -51,10 +58,26 @@ def list_projects(api_key: Optional[str] = None) -> List[Dict[str, object]]:
 
 
 @mcp.tool()
-def list_people(api_key: Optional[str] = None) -> List[Dict[str, object]]:
-    """List all people (id, name, email)."""
+def list_people(
+    full: bool = False,
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List people. Default returns {id, name, email}; set full=True for raw API objects."""
     client = get_client(api_key)
-    people_raw = client.iter_people()
+    if full:
+        if paginate:
+            return list(client.paginate("/people", params=params, limit=limit))
+        return client.request("GET", "/people", params=params)
+
+    if paginate:
+        people_raw = client.paginate("/people", params=params, limit=limit)
+    else:
+        resp = client.request("GET", "/people", params=params)
+        people_raw = resp.get("values", []) if isinstance(resp, dict) else resp
+
     return [
         {"id": p["id"], "name": f"{p.get('firstName', '')} {p.get('lastName', '')}".strip(), "email": p.get("email")}
         for p in people_raw
@@ -81,6 +104,104 @@ def billable_hours(
         return True
 
     return [row for row in rows if matches(row)]
+
+
+@mcp.tool()
+def list_clients(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List clients (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/clients", params=params, limit=limit))
+    return client.request("GET", "/clients", params=params)
+
+
+@mcp.tool()
+def list_assignments(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List assignments (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/assignments", params=params, limit=limit))
+    return client.request("GET", "/assignments", params=params)
+
+
+@mcp.tool()
+def list_actuals(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List actuals (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/actuals", params=params, limit=limit))
+    return client.request("GET", "/actuals", params=params)
+
+
+@mcp.tool()
+def list_roles(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List roles (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/roles", params=params, limit=limit))
+    return client.request("GET", "/roles", params=params)
+
+
+@mcp.tool()
+def list_skills(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List skills (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/skills", params=params, limit=limit))
+    return client.request("GET", "/skills", params=params)
+
+
+@mcp.tool()
+def list_teams(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List teams (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/teams", params=params, limit=limit))
+    return client.request("GET", "/teams", params=params)
+
+
+@mcp.tool()
+def list_rate_cards(
+    params: Optional[Dict[str, object]] = None,
+    paginate: bool = True,
+    limit: int = 200,
+    api_key: Optional[str] = None,
+) -> object:
+    """List rate cards (raw API objects)."""
+    client = get_client(api_key)
+    if paginate:
+        return list(client.paginate("/rate-cards", params=params, limit=limit))
+    return client.request("GET", "/rate-cards", params=params)
 
 
 @mcp.tool()
